@@ -3,7 +3,10 @@
 // Usa navigator.geolocation.watchPosition con alta precision; acumula puntos
 // {lat, lon, alt, t, acc} filtrando por precision y distancia minima.
 // Soporta trazado manual con clics como respaldo si el GPS no esta disponible.
-// Mantiene la pantalla despierta (wakeLock) mientras graba, cuando el navegador lo permite.
+// Mantiene la pantalla despierta (wakeLock) mientras graba, cuando el navegador
+// lo permite, y lo re-solicita al volver a primer plano (el navegador lo libera
+// cuando la pagina queda oculta). Acepta una sesion previa (puntos + segmentos)
+// para continuar una grabacion interrumpida por el sistema.
 
 import { haversine } from './geo.js';
 
@@ -33,16 +36,37 @@ export function puntosActuales() {
   return _puntos.slice();
 }
 
+export function segmentosActuales() {
+  return _segmentos.slice();
+}
+
 export function ultimaPosicion() {
   return _ultimaPos ? { ..._ultimaPos } : null;
 }
 
-/** Comienza la grabacion. opciones: {onPunto, onEstado, onError} */
-export function iniciar(opciones) {
+/** True si la pantalla esta protegida de apagarse (wakeLock activo). */
+export function wakeLockActivo() {
+  return _wakelock !== null;
+}
+
+/**
+ * Comienza la grabacion. opciones: {onPunto, onEstado, onError, onWakeLock}.
+ * Si se pasa previa = {puntos, segmentos} (sesion interrumpida), la retoma:
+ * siembra los puntos existentes y abre un segmento nuevo (hubo un corte).
+ */
+export function iniciar(opciones, previa = null) {
   if (_estado === ESTADO.GRABANDO) return;
   _opciones = opciones;
   _estado = ESTADO.GRABANDO;
-  if (_puntos.length === 0) _segmentos = [0];
+  if (previa && previa.puntos && previa.puntos.length > 0) {
+    _puntos = previa.puntos.slice();
+    _segmentos = (previa.segmentos && previa.segmentos.slice()) || [0];
+    _segmentos.push(_puntos.length); // corte: hubo interrupcion (pantalla apagada)
+    const ult = _puntos[_puntos.length - 1];
+    if (ult) _ultimaPos = { lat: ult.lat, lon: ult.lon };
+  } else {
+    if (_puntos.length === 0) _segmentos = [0];
+  }
   _opciones.onEstado?.(_estado);
   solicitarWakeLock();
   _watchId = navigator.geolocation.watchPosition(
@@ -55,6 +79,7 @@ export function iniciar(opciones) {
 export function pausar() {
   if (_estado !== ESTADO.GRABANDO) return;
   _estado = ESTADO.PAUSADO;
+  liberarWakeLock(); // en pausa la pantalla puede apagarse
   _opciones?.onEstado?.(_estado);
 }
 
@@ -62,6 +87,7 @@ export function reanudar() {
   if (_estado !== ESTADO.PAUSADO) return;
   _estado = ESTADO.GRABANDO;
   _segmentos.push(_puntos.length);
+  solicitarWakeLock();
   _opciones?.onEstado?.(_estado);
 }
 
@@ -138,13 +164,21 @@ function onErrorGeo(err) {
 }
 
 async function solicitarWakeLock() {
+  let ok = false;
   try {
     if ('wakeLock' in navigator) {
+      if (_wakelock) {
+        // liberar primero si quedara uno activo (re-solicitud al volver a primer plano)
+        _wakelock.release().catch(() => {});
+        _wakelock = null;
+      }
       _wakelock = await navigator.wakeLock.request('screen');
+      ok = true;
     }
   } catch {
     _wakelock = null; // no soportado o denegado: se sigue grabando igual
   }
+  _opciones?.onWakeLock?.(ok);
 }
 
 function liberarWakeLock() {
@@ -152,4 +186,16 @@ function liberarWakeLock() {
     _wakelock.release().catch(() => {});
     _wakelock = null;
   }
+  _opciones?.onWakeLock?.(false);
+}
+
+// El navegador libera el wakeLock cuando la pagina queda oculta (pantalla
+// apagada o app en segundo plano). Al volver a primer plano mientras se graba,
+// se vuelve a solicitar para que la pantalla no se apague sola de nuevo.
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && _estado === ESTADO.GRABANDO) {
+      solicitarWakeLock();
+    }
+  });
 }

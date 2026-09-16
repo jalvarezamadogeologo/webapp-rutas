@@ -18,6 +18,13 @@ let _temporizadorVivo = null;
 let _rutaGuardando = null; // ruta abierta en el modal de detalle
 let _ultimaUbicacion = null; // ultima posicion conocida (indicador en el mapa)
 let _mapaCentrado = false; // el mapa ya se centro en la primera fijacion
+let _sesionPendiente = null; // sesion en curso recuperada al abrir la app
+let _ultimoGuardadoSesion = 0; // debounce de guardado periodico de la sesion
+
+// La sesion en curso se persiste en IndexedDB cada INTERVALO_SESION_MS como
+// respaldo ante la muerte de la app (pantalla apagada): al reabrir se ofrece
+// continuar o descartar, y no se pierde el track.
+const INTERVALO_SESION_MS = 10000;
 
 const $ = (id) => document.getElementById(id);
 
@@ -68,6 +75,8 @@ function init() {
 
   $('btnConfirmarGuardar').addEventListener('click', confirmarGuardado);
   $('btnConfirmarPunto').addEventListener('click', confirmarPunto);
+  $('btnSesionContinuar').addEventListener('click', continuarSesion);
+  $('btnSesionDescartar').addEventListener('click', descartarSesion);
   $('btnExportarDetalleGPX').addEventListener('click', () => {
     if (_rutaGuardando) exportarGPX(_rutaGuardando.id);
   });
@@ -97,7 +106,104 @@ function init() {
     }
   });
 
+  // Al volver a primer plano se refresca el aviso de pantalla (graba.js
+  // re-solicita el wakeLock y avisa via onWakeLock).
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') actualizarAvisoPantalla();
+  });
+
   actualizarControles();
+  recuperarSesion();
+}
+
+// --- sesion en curso (continuar o descartar) ---
+
+/** Al abrir la app, si hay una grabacion interrumpida se ofrece retomarla. */
+async function recuperarSesion() {
+  const sesion = await almacen.obtenerSesion();
+  if (!sesion || !sesion.puntos || sesion.puntos.length === 0) return;
+  const haceSeg = Math.max(0, Math.round((Date.now() - (sesion.guardadoEn || Date.now())) / 1000));
+  $('sesionInfo').textContent =
+    `${sesion.puntos.length} puntos registrados · ultima actividad hace ${formatearDuracion(haceSeg)}`;
+  _sesionPendiente = sesion;
+  abrirModal('modalSesion');
+}
+
+/** Retoma la grabacion interrumpida: restaura track, mapa y sigue grabando. */
+function continuarSesion() {
+  const sesion = _sesionPendiente;
+  _sesionPendiente = null;
+  cerrarModal('modalSesion');
+  if (!sesion) return;
+
+  _rutaActual = {
+    puntos: sesion.puntos,
+    segmentos: sesion.segmentos && sesion.segmentos.length ? sesion.segmentos : [0],
+    puntosMarcados: sesion.puntosMarcados || [],
+  };
+  _polylineViva = L.polyline(
+    _rutaActual.puntos.map((p) => [p.lat, p.lon]),
+    { color: '#d62828', weight: 4, opacity: 0.85 },
+  ).addTo(mapa.obtenerMapa());
+
+  const ult = _rutaActual.puntos[_rutaActual.puntos.length - 1];
+  if (ult) mapa.centrarEn(ult.lat, ult.lon, 16);
+
+  graba.iniciar(opcionesGrabacion(), {
+    puntos: _rutaActual.puntos,
+    segmentos: _rutaActual.segmentos,
+  });
+  _temporizadorVivo = setInterval(actualizarInfoVivo, 1000);
+  guardarSesion(true);
+  mostrarToast('Grabacion restaurada');
+}
+
+/** Descarta la grabacion interrumpida. */
+async function descartarSesion() {
+  _sesionPendiente = null;
+  cerrarModal('modalSesion');
+  await almacen.eliminarSesion();
+  mostrarToast('Grabacion descartada');
+}
+
+/** Guarda la sesion en curso en IndexedDB (con debounce, o forzado). */
+function guardarSesion(fuerza = false) {
+  if (_rutaActual.puntos.length === 0) return;
+  const ahora = Date.now();
+  if (!fuerza && ahora - _ultimoGuardadoSesion < INTERVALO_SESION_MS) return;
+  _ultimoGuardadoSesion = ahora;
+  almacen
+    .guardarSesion({
+      puntos: _rutaActual.puntos,
+      segmentos: _rutaActual.segmentos,
+      puntosMarcados: _rutaActual.puntosMarcados,
+    })
+    .catch(() => {}); // si IndexedDB falla, se sigue grabando igual
+}
+
+/** Callbacks comunes de grabacion (en vivo y al retomar una sesion). */
+function opcionesGrabacion() {
+  return {
+    onPunto: (p) => {
+      _rutaActual.puntos.push(p);
+      _polylineViva.addLatLng([p.lat, p.lon]);
+      guardarSesion();
+    },
+    onEstado: actualizarControles,
+    onError: (msg) => mostrarToast(msg, 'error'),
+    onWakeLock: () => actualizarAvisoPantalla(),
+  };
+}
+
+/**
+ * Muestra el aviso "manten la pantalla encendida" solo si se esta grabando
+ * y el wakeLock no esta activo (navegador sin soporte o denegado).
+ */
+function actualizarAvisoPantalla() {
+  const aviso = $('avisoWakelock');
+  if (!aviso) return;
+  const grabando = graba.estadoActual() === graba.ESTADO.GRABANDO;
+  aviso.hidden = !(grabando && !graba.wakeLockActivo());
 }
 
 // --- grabacion ---
@@ -107,14 +213,7 @@ function iniciarGrabacion() {
   _rutaActual = { puntos: [], segmentos: [], puntosMarcados: [] };
   _polylineViva = L.polyline([], { color: '#d62828', weight: 4, opacity: 0.85 }).addTo(mapa.obtenerMapa());
 
-  graba.iniciar({
-    onPunto: (p) => {
-      _rutaActual.puntos.push(p);
-      _polylineViva.addLatLng([p.lat, p.lon]);
-    },
-    onEstado: actualizarControles,
-    onError: (msg) => mostrarToast(msg, 'error'),
-  });
+  graba.iniciar(opcionesGrabacion());
 
   _temporizadorVivo = setInterval(actualizarInfoVivo, 1000);
   mostrarToast('Grabando...');
@@ -124,9 +223,11 @@ function alternarPausa() {
   const est = graba.estadoActual();
   if (est === graba.ESTADO.GRABANDO) {
     graba.pausar();
+    guardarSesion(true); // persistir la pausa
     mostrarToast('Grabacion en pausa');
   } else if (est === graba.ESTADO.PAUSADO) {
     graba.reanudar();
+    guardarSesion(true);
     mostrarToast('Grabacion reanudada');
   }
 }
@@ -154,6 +255,9 @@ function detenerGrabacion() {
   const res = graba.detener();
   _rutaActual.puntos = res.puntos;
   _rutaActual.segmentos = res.segmentos;
+  // Se persiste la sesion antes de mostrar el modal: si el usuario cierra el
+  // modal sin guardar, el track queda recuperable al reabrir la app.
+  guardarSesion(true);
 
   if (_rutaActual.puntos.length === 0) {
     _polylineViva = null;
@@ -211,6 +315,8 @@ async function confirmarGuardado() {
   };
 
   await almacen.guardarRuta(ruta);
+  await almacen.eliminarSesion(); // la grabacion ya quedo guardada como ruta
+  _ultimoGuardadoSesion = 0;
   _rutaActual = { puntos: [], segmentos: [], puntosMarcados: [] };
   _polylineViva = null;
 
@@ -252,6 +358,7 @@ function confirmarPunto() {
     return;
   }
   _rutaActual.puntosMarcados.push(w);
+  guardarSesion(true);
   mapa.crearMarcadorTemporal(w.lat, w.lon, `<b>${escapeHtml(nombre || 'Punto')}</b>`);
   cerrarModal('modalPunto');
   mostrarToast(`Punto "${nombre || 'marcado'}" agregado`);

@@ -31,6 +31,9 @@
   <div id="mapa"></div>
 
   <div id="estadoGrabacion" class="estado"></div>
+  <div id="avisoWakelock" class="aviso-wakelock" hidden>
+    Pantalla puede apagarse y cortar la grabacion. Manten la pantalla encendida.
+  </div>
 
   <footer id="controles" class="controles">
     <div class="controles-botones">
@@ -71,6 +74,19 @@
       <div class="modal-acciones">
         <button id="btnCancelarPunto" class="btn-secundario" data-cerrar="modalPunto">Cancelar</button>
         <button id="btnConfirmarPunto" class="btn-primario">Guardar punto</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal sesion en curso (grabacion interrumpida por pantalla apagada) -->
+  <div id="modalSesion" class="modal">
+    <div class="modal-caja">
+      <h2>Grabacion en curso</h2>
+      <p class="sesion-info">Se encontro una grabacion sin terminar. Podes continuarla o descartarla.</p>
+      <p id="sesionInfo" class="sesion-info sesion-dato"></p>
+      <div class="modal-acciones">
+        <button id="btnSesionDescartar" class="btn-secundario">Descartar</button>
+        <button id="btnSesionContinuar" class="btn-primario">Continuar</button>
       </div>
     </div>
   </div>

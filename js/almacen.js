@@ -1,10 +1,14 @@
 // almacen.js - Persistencia local con IndexedDB.
 // Almacena rutas completas (puntos + waypoints + estadisticas) en el store "rutas".
+// El store "sesion" guarda la grabacion EN CURSO (una sola entrada 'activa') para
+// no perder el track si el navegador mata la app con la pantalla apagada.
 // La lista de tarjetas devuelve resumenes sin los puntos para no cargar datos de mas.
 
 const DB_NOMBRE = 'webapp-rutas';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE = 'rutas';
+const STORE_SESION = 'sesion';
+const ID_SESION_ACTIVA = 'activa';
 
 let _db = null;
 
@@ -16,6 +20,9 @@ function abrirDB() {
       const db = req.result;
       if (!db.objectStoreNames.contains(STORE)) {
         db.createObjectStore(STORE, { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains(STORE_SESION)) {
+        db.createObjectStore(STORE_SESION, { keyPath: 'id' });
       }
     };
     req.onsuccess = () => {
@@ -77,4 +84,25 @@ export async function eliminarRuta(id) {
 /** Cuenta total de rutas guardadas (util en el estado inicial). */
 export async function contarRutas() {
   return tx(STORE, 'readonly', (s) => s.count());
+}
+
+// --- sesion en curso (grabacion activa) ---
+
+/** Guarda (o reemplaza) la sesion de grabacion en curso. Devuelve el id. */
+export async function guardarSesion(sesion) {
+  sesion.id = ID_SESION_ACTIVA;
+  sesion.guardadoEn = Date.now();
+  await tx(STORE_SESION, 'readwrite', (s) => s.put(sesion));
+  return sesion.id;
+}
+
+/** Devuelve la sesion en curso, o null si no hay grabacion activa pendiente. */
+export async function obtenerSesion() {
+  const s = await tx(STORE_SESION, 'readonly', (s) => s.get(ID_SESION_ACTIVA));
+  return s || null;
+}
+
+/** Elimina la sesion en curso (se guardo la ruta o el usuario la descarto). */
+export async function eliminarSesion() {
+  await tx(STORE_SESION, 'readwrite', (s) => s.delete(ID_SESION_ACTIVA));
 }

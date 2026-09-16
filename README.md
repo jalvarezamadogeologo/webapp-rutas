@@ -9,4 +9,6 @@ Registrador de rutas GPS sobre un mapa (Leaflet) para uso en terreno. PWA instal
 - Waypoints, estadisticas y perfil de elevacion.
 - Export a GPX 1.1 y JSON.
 - Replay animado de rutas sobre el mapa.
+- Grabacion recuperable: si la app se cierra con la pantalla apagada, al reabrir
+  se ofrece continuar la sesion sin perder el track grabado.
 - Todo se guarda en el navegador (IndexedDB).

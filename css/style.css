@@ -87,6 +87,24 @@ body {
 .estado-activo { color: #ff5c5c; }
 .estado-pausa { color: #ffb84d; }
 
+/* ---- aviso pantalla encendida (wakeLock no activo) ---- */
+.aviso-wakelock {
+  position: absolute;
+  top: 92px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  max-width: calc(100% - 24px);
+  padding: 6px 14px;
+  border-radius: 10px;
+  font-size: 0.78rem;
+  text-align: center;
+  background: rgba(45, 58, 71, 0.92);
+  border: 1px solid rgba(255, 180, 77, 0.55);
+  color: #ffd28a;
+  pointer-events: none;
+}
+
 /* ---- controles inferiores ---- */
 .controles {
   background: var(--bg);
@@ -219,6 +237,17 @@ body {
 }
 
 .detalle-altura.aviso { color: #ffd28a; }
+
+/* ---- modal sesion en curso ---- */
+.sesion-info {
+  font-size: 0.85rem;
+  color: var(--texto-suave);
+  margin: 8px 0 0;
+}
+
+.sesion-dato {
+  font-variant-numeric: tabular-nums;
+}
 
 /* ---- replay animado ---- */
 .replay-controles {

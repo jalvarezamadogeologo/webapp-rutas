@@ -6,7 +6,7 @@
 //    en zonas ya visitadas).
 //  - OpenTopoData (alturas): solo red, no se cachea.
 
-const VERSION = 'v1.4';
+const VERSION = 'v1.5';
 const CACHE_APP = `rutas-app-${VERSION}`;
 const CACHE_TILES = 'rutas-tiles';
 const MAX_TILES = 2000;
