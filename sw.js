@@ -6,7 +6,7 @@
 //    en zonas ya visitadas).
 //  - Open-Meteo (alturas): solo red, no se cachea.
 
-const VERSION = 'v1.5.4';
+const VERSION = 'v1.5.5';
 const CACHE_APP = `rutas-app-${VERSION}`;
 const CACHE_TILES = 'rutas-tiles';
 const MAX_TILES = 2000;

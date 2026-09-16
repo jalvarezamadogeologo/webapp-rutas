@@ -399,15 +399,16 @@ async function verRuta(id) {
   const avisoAltura = $('detalleAlturaEstado');
   const btnCorregir = $('btnCorregirAlturas');
   if (ruta.altCorregida === false) {
-    avisoAltura.textContent = 'Alturas sin corregir (GPS). Corrige con SRTM para mejor precision.';
+    avisoAltura.textContent = 'Alturas del GPS (sin corregir SRTM).';
     avisoAltura.className = 'detalle-altura aviso';
-    btnCorregir.style.display = '';
-    btnCorregir.disabled = false;
   } else {
-    avisoAltura.textContent = 'Alturas corregidas con SRTM.';
+    avisoAltura.textContent = 'Alturas corregidas con SRTM. Podes re-corregir si lo deseas.';
     avisoAltura.className = 'detalle-altura';
-    btnCorregir.style.display = 'none';
   }
+  // El boton queda siempre disponible: re-corregir es idempotente y sirve
+  // tambien para rutas que quedaron a medio corregir en versiones viejas.
+  btnCorregir.style.display = '';
+  btnCorregir.disabled = false;
   if (ruta.descripcion) {
     $('detalleDesc').textContent = ruta.descripcion;
     $('detalleDesc').style.display = 'block';
@@ -435,10 +436,10 @@ function actualizarReplayUI() {
     : `${formatearDuracion(resta)} restantes`;
 }
 
-/** Re-corrige alturas SRTM de una ruta guardada sin conexion (modal de detalle). */
+/** Re-corrige alturas SRTM de una ruta guardada (modal de detalle). */
 async function corregirAlturasGuardada() {
   const ruta = _rutaGuardando;
-  if (!ruta || ruta.altCorregida !== false) return;
+  if (!ruta) return;
   const btn = $('btnCorregirAlturas');
   const avisoAltura = $('detalleAlturaEstado');
   btn.disabled = true;
