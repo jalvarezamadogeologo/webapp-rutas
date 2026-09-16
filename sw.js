@@ -6,7 +6,7 @@
 //    en zonas ya visitadas).
 //  - OpenTopoData (alturas): solo red, no se cachea.
 
-const VERSION = 'v1.3';
+const VERSION = 'v1.4';
 const CACHE_APP = `rutas-app-${VERSION}`;
 const CACHE_TILES = 'rutas-tiles';
 const MAX_TILES = 2000;
@@ -29,6 +29,7 @@ const ASSETS_APP = [
   './js/mapa.js',
   './js/perfil.js',
   './js/exportar.js',
+  './js/replay.js',
   './js/ui.js',
   './js/util.js',
   './iconos/icon-192.png',

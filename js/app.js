@@ -5,6 +5,7 @@ import * as graba from './graba.js';
 import * as almacen from './almacen.js';
 import * as altura from './altura.js';
 import * as perfil from './perfil.js';
+import * as replay from './replay.js';
 import * as exp from './exportar.js';
 import { abrirModal, cerrarModal, mostrarToast, renderLista, gridEstadisticas } from './ui.js';
 import { escapeHtml, formatearFecha, formatearDistancia, formatearDuracion, formatearVelocidad } from './util.js';
@@ -74,11 +75,26 @@ function init() {
     if (_rutaGuardando) exportarJSON(_rutaGuardando.id);
   });
   $('btnCorregirAlturas').addEventListener('click', corregirAlturasGuardada);
+  $('btnReplayPlay').addEventListener('click', () => {
+    replay.alternar();
+    actualizarReplayUI();
+  });
+  $('btnReplayVel').addEventListener('click', () => {
+    replay.cambiarVelocidad();
+    actualizarReplayUI();
+  });
+  $('btnReplayReiniciar').addEventListener('click', () => {
+    replay.reiniciar();
+    actualizarReplayUI();
+  });
 
   // Cualquier elemento con data-cerrar cierra su modal/panel.
   document.addEventListener('click', (ev) => {
     const cerrar = ev.target.closest('[data-cerrar]');
-    if (cerrar) cerrarModal(cerrar.dataset.cerrar);
+    if (cerrar) {
+      if (cerrar.dataset.cerrar === 'modalDetalle') replay.detener();
+      cerrarModal(cerrar.dataset.cerrar);
+    }
   });
 
   actualizarControles();
@@ -257,6 +273,7 @@ async function abrirLista() {
 async function verRuta(id) {
   const ruta = await almacen.obtenerRuta(id);
   if (!ruta) return;
+  replay.detener();
   _rutaGuardando = ruta;
   cerrarModal('panelLista');
   mapa.dibujarRuta(ruta.puntos);
@@ -284,6 +301,23 @@ async function verRuta(id) {
   }
   abrirModal('modalDetalle');
   requestAnimationFrame(() => perfil.dibujarPerfil($('canvasDetalle'), ruta.puntos));
+
+  // Replay animado: disponible si la ruta tiene rango temporal valido.
+  const duracion = replay.preparar(ruta.puntos, ruta.puntosMarcados, actualizarReplayUI);
+  $('replayControles').style.display = duracion === null ? 'none' : '';
+  actualizarReplayUI();
+}
+
+/** Actualiza la barra de control del replay (play/pausa, velocidad, estado). */
+function actualizarReplayUI() {
+  if (!replay.preparado()) return;
+  const est = replay.estadoActual();
+  $('btnReplayPlay').textContent = est.termino ? 'Reproducir' : est.jugando ? 'Pausa' : 'Reproducir';
+  $('btnReplayVel').textContent = `${est.velocidad}x`;
+  const resta = Math.max(0, (est.tMax - est.tActual) / 1000);
+  $('replayEstado').textContent = est.termino
+    ? 'Fin del recorrido'
+    : `${formatearDuracion(resta)} restantes`;
 }
 
 /** Re-corrige alturas SRTM de una ruta guardada sin conexion (modal de detalle). */

@@ -220,6 +220,27 @@ body {
 
 .detalle-altura.aviso { color: #ffd28a; }
 
+/* ---- replay animado ---- */
+.replay-controles {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.replay-controles .btn-secundario {
+  padding: 8px 12px;
+  font-size: 0.85rem;
+}
+
+.replay-estado {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: var(--texto-suave);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---- estadisticas ---- */
 .grid-stats {
   display: grid;
