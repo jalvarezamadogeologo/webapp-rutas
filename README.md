@@ -12,7 +12,8 @@ solo los archivos de la app (sin tests, tools ni historial de desarrollo).
 
 ```powershell
 # desde proyectos/webapp-rutas
-robocopy . publica index.html manifest.webmanifest sw.js css js iconos vendor /E /XD node_modules .git publica
+Copy-Item index.html, manifest.webmanifest, sw.js -Destination publica -Force
+Copy-Item css, js, iconos, vendor -Destination publica -Recurse -Force
 Set-Location publica
 git add --all
 git commit -m "descripcion del cambio"
