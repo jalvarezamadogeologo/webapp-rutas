@@ -23,6 +23,9 @@ const CAPAS_BASE = {
 
 let _map = null;
 let _capaRuta = null; // grupo donde van tracks y waypoints de la ruta activa
+let _capaUbicacion = null; // grupo del indicador de ubicacion actual
+let _circuloPos = null; // punto solido de la posicion
+let _circuloError = null; // circulo de precision (transparente)
 let _tileLayer = null;
 let _capaActual = 'calle';
 
@@ -34,6 +37,7 @@ export function inicializarMapa(contenedorId, centro = CENTRO_DEFAULT, zoom = ZO
     attribution: CAPAS_BASE.calle.attribution,
   }).addTo(_map);
   _capaRuta = L.layerGroup().addTo(_map);
+  _capaUbicacion = L.layerGroup().addTo(_map);
   return _map;
 }
 
@@ -95,4 +99,34 @@ export function crearMarcadorTemporal(lat, lon, contenido) {
 /** Centra el mapa en una posicion. */
 export function centrarEn(lat, lon, zoom = 17) {
   _map.setView([lat, lon], zoom);
+}
+
+/** Dibuja/actualiza el indicador de ubicacion actual: punto solido + circulo de error (precision). */
+export function mostrarUbicacion(lat, lon, accuracy) {
+  if (!_map) return;
+  const radio = Math.max(accuracy || 0, 10); // minimo visible
+  if (!_circuloError) {
+    _circuloError = L.circle([lat, lon], {
+      radius: radio,
+      color: 'rgba(26, 115, 232, 0.35)',
+      weight: 1,
+      fillColor: 'rgba(26, 115, 232, 0.15)',
+      fillOpacity: 1,
+      interactive: false, // no interferir con el trazo por clics
+    }).addTo(_capaUbicacion);
+  } else {
+    _circuloError.setLatLng([lat, lon]).setRadius(radio);
+  }
+  if (!_circuloPos) {
+    _circuloPos = L.circleMarker([lat, lon], {
+      radius: 7,
+      color: '#ffffff',
+      weight: 2,
+      fillColor: '#1a73e8',
+      fillOpacity: 1,
+      interactive: false,
+    }).addTo(_capaUbicacion);
+  } else {
+    _circuloPos.setLatLng([lat, lon]);
+  }
 }

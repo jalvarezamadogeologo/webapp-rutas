@@ -43,6 +43,24 @@ body {
   gap: 8px;
 }
 
+/* Boton circular para centrar en la ubicacion actual */
+.btn-ubicacion {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--borde);
+  border-radius: 50%;
+  background: var(--bg);
+  color: var(--texto);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.btn-ubicacion:active { background: var(--bg-claro); }
+
 /* ---- mapa ---- */
 #mapa {
   flex: 1;

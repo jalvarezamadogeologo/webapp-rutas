@@ -15,6 +15,8 @@ let _rutaActual = { puntos: [], segmentos: [], puntosMarcados: [] };
 let _polylineViva = null;
 let _temporizadorVivo = null;
 let _rutaGuardando = null; // ruta abierta en el modal de detalle
+let _ultimaUbicacion = null; // ultima posicion conocida (indicador en el mapa)
+let _mapaCentrado = false; // el mapa ya se centro en la primera fijacion
 
 const $ = (id) => document.getElementById(id);
 
@@ -27,12 +29,26 @@ function init() {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
 
-  // Centrar en la posicion actual si el GPS responde.
-  navigator.geolocation?.getCurrentPosition?.(
-    (pos) => mapa.centrarEn(pos.coords.latitude, pos.coords.longitude, 16),
-    () => {},
-    { enableHighAccuracy: true, timeout: 8000 },
-  );
+  // Indicador de ubicacion actual (punto solido + circulo de error) con
+  // watchPosition continuo; centra el mapa la primera vez que el GPS responde.
+  if ('geolocation' in navigator) {
+    navigator.geolocation.watchPosition(
+      (pos) => {
+        const { latitude, longitude, accuracy } = pos.coords;
+        _ultimaUbicacion = { lat: latitude, lon: longitude };
+        mapa.mostrarUbicacion(latitude, longitude, accuracy);
+        if (!_mapaCentrado) {
+          _mapaCentrado = true;
+          mapa.centrarEn(latitude, longitude, 16);
+        }
+      },
+      () => {
+        // Sin permiso o sin senal: no reintentar el centrado automatico.
+        _mapaCentrado = true;
+      },
+      { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 },
+    );
+  }
 
   $('btnPlay').addEventListener('click', iniciarGrabacion);
   $('btnPause').addEventListener('click', alternarPausa);
@@ -40,6 +56,7 @@ function init() {
   $('btnPunto').addEventListener('click', abrirModalPunto);
   $('btnLista').addEventListener('click', abrirLista);
   $('btnCapa').addEventListener('click', alternarCapa);
+  $('btnUbicacion').addEventListener('click', irAUbicacion);
 
   // Trazo manual con clics como respaldo sin GPS.
   mapa.obtenerMapa().on('click', (ev) => {
@@ -101,6 +118,15 @@ function alternarCapa() {
   const nueva = mapa.capaActual() === 'calle' ? 'satelite' : 'calle';
   mapa.cambiarCapaBase(nueva);
   $('btnCapa').textContent = nueva === 'satelite' ? 'Mapa' : 'Satelite';
+}
+
+/** Centra el mapa en la ultima posicion conocida del GPS. */
+function irAUbicacion() {
+  if (!_ultimaUbicacion) {
+    mostrarToast('Esperando posicion GPS...', 'error');
+    return;
+  }
+  mapa.centrarEn(_ultimaUbicacion.lat, _ultimaUbicacion.lon, 16);
 }
 
 function detenerGrabacion() {
