@@ -4,9 +4,9 @@
 //  - Navegacion: network-first con fallback a cache (para recibir updates).
 //  - Tiles (OSM / Esri): cache-first con limite de entradas (funciona offline
 //    en zonas ya visitadas).
-//  - OpenTopoData (alturas): solo red, no se cachea.
+//  - Open-Meteo (alturas): solo red, no se cachea.
 
-const VERSION = 'v1.5.2';
+const VERSION = 'v1.5.3';
 const CACHE_APP = `rutas-app-${VERSION}`;
 const CACHE_TILES = 'rutas-tiles';
 const MAX_TILES = 2000;
@@ -68,8 +68,8 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(req.url);
 
-  // Alturas SRTM: solo red (dato dinamico, no se cachea).
-  if (url.hostname === 'api.opentopodata.org') return;
+  // Elevacion SRTM (Open-Meteo): solo red, no se cachea.
+  if (url.hostname === 'api.open-meteo.com') return;
 
   // Tiles: cache-first con limite.
   if (esTile(req.url)) {

@@ -1,16 +1,22 @@
-// altura.js - Correccion de altitud con SRTM via OpenTopoData.
-// El GPS del movil da altitud ruidosa; al guardar se consulta OpenTopoData
-// (SRTM 90 m, gratis, sin API key) por lotes de hasta 100 puntos y se
-// reemplaza la altitud. Si no hay red, se conserva la del GPS.
+// altura.js - Correccion de altitud con SRTM via Open-Meteo.
+// El GPS del movil da altitud ruidosa; al guardar se consulta Open-Meteo
+// (elevacion con datos SRTM, gratis, sin API key y con CORS habilitado para
+// navegadores) por lotes de hasta 100 puntos y se reemplaza la altitud.
+// Si no hay red, se conserva la del GPS.
+// Nota (2026-09-16): se migro desde OpenTopoData porque su preflight CORS dejo
+// de incluir Access-Control-Allow-Origin y los navegadores bloquean la llamada.
 
 import { dividirEnLotes, estadisticas } from './geo.js';
 
-const ENDPOINT = 'https://api.opentopodata.org/v1/srtm90m';
+const ENDPOINT = 'https://api.open-meteo.com/v1/elevation';
 const TAMANO_LOTE = 100;
 
-/** Coordenadas para el endpoint: string "lat,lon" separado por pipes. */
+/** Separa lat y lon en listas CSV para el query de Open-Meteo. */
 function aCoordenadas(puntos) {
-  return puntos.map((p) => `${p.lat},${p.lon}`).join('|');
+  return {
+    lat: puntos.map((p) => p.lat).join(','),
+    lon: puntos.map((p) => p.lon).join(','),
+  };
 }
 
 /**
@@ -25,13 +31,10 @@ export async function corregirAlturas(puntos) {
   if (puntos.length === 0) return [];
   const resultados = [];
   for (const lote of dividirEnLotes(puntos, TAMANO_LOTE)) {
+    const { lat, lon } = aCoordenadas(lote);
     let res;
     try {
-      res = await fetch(ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ locations: aCoordenadas(lote) }),
-      });
+      res = await fetch(`${ENDPOINT}?latitude=${lat}&longitude=${lon}`);
     } catch {
       throw new Error('sin conexion');
     }
@@ -39,11 +42,11 @@ export async function corregirAlturas(puntos) {
       throw new Error(`la API respondio ${res.status}`);
     }
     const datos = await res.json();
-    if (!datos.results || datos.results.length !== lote.length) {
+    if (!Array.isArray(datos.elevation) || datos.elevation.length !== lote.length) {
       throw new Error('la API respondio con formato inesperado');
     }
     lote.forEach((p, i) => {
-      const elev = datos.results[i].elevation;
+      const elev = datos.elevation[i];
       if (typeof elev === 'number' && Number.isFinite(elev)) {
         p.alt = Math.round(elev);
         p.altFuente = 'srtm';
@@ -54,7 +57,7 @@ export async function corregirAlturas(puntos) {
   return resultados;
 }
 
-/** Puntos en que OpenTopoData devolvio null (sin cobertura SRTM, ej. mar). */
+/** Puntos en que la API devolvio null (sin cobertura SRTM, ej. mar). */
 export function sinCobertura(puntos) {
   return puntos.filter((p) => p.altFuente !== 'srtm');
 }

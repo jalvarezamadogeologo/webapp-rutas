@@ -451,7 +451,7 @@ async function corregirAlturasGuardada() {
 
   const actualizada = altura.rutaCorregida(ruta, puntos);
   if (!actualizada) {
-    avisoAltura.textContent = 'OpenTopoData no tiene cobertura SRTM en esta zona.';
+    avisoAltura.textContent = 'La API de elevacion no tiene cobertura SRTM en esta zona.';
     btn.disabled = false;
     mostrarToast('Sin cobertura SRTM en la zona', 'error');
     return;
