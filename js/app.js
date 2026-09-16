@@ -296,8 +296,14 @@ async function confirmarGuardado() {
   let puntos = _rutaActual.puntos;
   let altCorregida = false;
   let errorAltura = null;
+  const zonaEstado = $('zonaGuardarEstado');
+  zonaEstado.textContent = 'Corrigiendo alturas con SRTM...';
   try {
-    puntos = await altura.corregirAlturas(puntos);
+    puntos = await altura.corregirAlturas(puntos, {
+      onProgreso: (lote, total) => {
+        zonaEstado.textContent = `Corrigiendo alturas SRTM (lote ${lote} de ${total})...`;
+      },
+    });
     altCorregida = true;
   } catch (e) {
     altCorregida = false; // sin red o error de la API: se conserva la altitud del GPS
@@ -441,7 +447,11 @@ async function corregirAlturasGuardada() {
 
   let puntos;
   try {
-    puntos = await altura.corregirAlturas(ruta.puntos);
+    puntos = await altura.corregirAlturas(ruta.puntos, {
+      onProgreso: (lote, total) => {
+        avisoAltura.textContent = `Corrigiendo alturas SRTM (lote ${lote} de ${total})...`;
+      },
+    });
   } catch (e) {
     avisoAltura.textContent = `No se pudo corregir (${e.message}). Intentalo de nuevo.`;
     btn.disabled = false;
