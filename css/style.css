@@ -206,6 +206,20 @@ body {
   color: var(--texto);
 }
 
+.btn-secundario:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ---- detalle: estado de alturas ---- */
+.detalle-altura {
+  font-size: 0.8rem;
+  color: var(--texto-suave);
+  margin-top: 8px;
+}
+
+.detalle-altura.aviso { color: #ffd28a; }
+
 /* ---- estadisticas ---- */
 .grid-stats {
   display: grid;

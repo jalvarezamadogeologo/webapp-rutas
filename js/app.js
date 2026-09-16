@@ -73,6 +73,7 @@ function init() {
   $('btnExportarDetalleJSON').addEventListener('click', () => {
     if (_rutaGuardando) exportarJSON(_rutaGuardando.id);
   });
+  $('btnCorregirAlturas').addEventListener('click', corregirAlturasGuardada);
 
   // Cualquier elemento con data-cerrar cierra su modal/panel.
   document.addEventListener('click', (ev) => {
@@ -263,6 +264,18 @@ async function verRuta(id) {
   $('detalleTitulo').textContent = ruta.nombre;
   $('detalleFecha').textContent = formatearFecha(ruta.fecha);
   $('detalleStats').innerHTML = gridEstadisticas(ruta.stats, ruta.altCorregida);
+  const avisoAltura = $('detalleAlturaEstado');
+  const btnCorregir = $('btnCorregirAlturas');
+  if (ruta.altCorregida === false) {
+    avisoAltura.textContent = 'Alturas sin corregir (GPS). Corrige con SRTM para mejor precision.';
+    avisoAltura.className = 'detalle-altura aviso';
+    btnCorregir.style.display = '';
+    btnCorregir.disabled = false;
+  } else {
+    avisoAltura.textContent = 'Alturas corregidas con SRTM.';
+    avisoAltura.className = 'detalle-altura';
+    btnCorregir.style.display = 'none';
+  }
   if (ruta.descripcion) {
     $('detalleDesc').textContent = ruta.descripcion;
     $('detalleDesc').style.display = 'block';
@@ -271,6 +284,45 @@ async function verRuta(id) {
   }
   abrirModal('modalDetalle');
   requestAnimationFrame(() => perfil.dibujarPerfil($('canvasDetalle'), ruta.puntos));
+}
+
+/** Re-corrige alturas SRTM de una ruta guardada sin conexion (modal de detalle). */
+async function corregirAlturasGuardada() {
+  const ruta = _rutaGuardando;
+  if (!ruta || ruta.altCorregida !== false) return;
+  const btn = $('btnCorregirAlturas');
+  const avisoAltura = $('detalleAlturaEstado');
+  btn.disabled = true;
+  avisoAltura.textContent = 'Corrigiendo alturas con SRTM...';
+  avisoAltura.className = 'detalle-altura aviso';
+
+  let puntos;
+  try {
+    puntos = await altura.corregirAlturas(ruta.puntos);
+  } catch {
+    avisoAltura.textContent = 'Sin conexion: no se pudo corregir. Intentalo con red.';
+    btn.disabled = false;
+    mostrarToast('Sin red para corregir alturas', 'error');
+    return;
+  }
+
+  const actualizada = altura.rutaCorregida(ruta, puntos);
+  if (!actualizada) {
+    avisoAltura.textContent = 'OpenTopoData no tiene cobertura SRTM en esta zona.';
+    btn.disabled = false;
+    mostrarToast('Sin cobertura SRTM en la zona', 'error');
+    return;
+  }
+
+  await almacen.guardarRuta(actualizada);
+  _rutaGuardando = actualizada;
+
+  $('detalleStats').innerHTML = gridEstadisticas(actualizada.stats, true);
+  requestAnimationFrame(() => perfil.dibujarPerfil($('canvasDetalle'), actualizada.puntos));
+  avisoAltura.textContent = 'Alturas corregidas con SRTM.';
+  avisoAltura.className = 'detalle-altura';
+  btn.style.display = 'none';
+  mostrarToast('Alturas corregidas con SRTM');
 }
 
 async function exportarGPX(id) {

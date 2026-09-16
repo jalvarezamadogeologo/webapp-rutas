@@ -3,7 +3,7 @@
 // (SRTM 90 m, gratis, sin API key) por lotes de hasta 100 puntos y se
 // reemplaza la altitud. Si no hay red, se conserva la del GPS.
 
-import { dividirEnLotes } from './geo.js';
+import { dividirEnLotes, estadisticas } from './geo.js';
 
 const ENDPOINT = 'https://api.opentopodata.org/v1/srtm90m';
 const TAMANO_LOTE = 100;
@@ -50,4 +50,14 @@ export async function corregirAlturas(puntos) {
 /** Puntos en que OpenTopoData devolvio null (sin cobertura SRTM, ej. mar). */
 export function sinCobertura(puntos) {
   return puntos.filter((p) => p.altFuente !== 'srtm');
+}
+
+/**
+ * Construye la ruta actualizada tras una correccion SRTM exitosa: recalcula
+ * estadisticas y marca altCorregida. Devuelve null si ningun punto quedo
+ * corregido (sin cobertura SRTM en la zona).
+ */
+export function rutaCorregida(ruta, puntos) {
+  if (puntos.length === 0 || sinCobertura(puntos).length === puntos.length) return null;
+  return { ...ruta, puntos, stats: estadisticas(puntos), altCorregida: true };
 }
