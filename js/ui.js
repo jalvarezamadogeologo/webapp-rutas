@@ -65,7 +65,7 @@ export function renderLista(contenedor, rutas, acciones) {
 /** Devuelve el HTML de una grilla de estadisticas (reutilizable). */
 export function gridEstadisticas(stats, altCorregida) {
   const s = stats || {};
-  const aviso = altCorregida === false ? '<p class="aviso">Alturas sin corregir (SRTM no disponible).</p>' : '';
+  const aviso = altCorregida === false ? '<p class="aviso">Alturas del GPS (sin corregir SRTM).</p>' : '';
   return `
     <div class="grid-stats">
       <div><span class="stat">${escapeHtml(formatearDistancia(s.distancia))}</span><label>distancia</label></div>
