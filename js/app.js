@@ -295,11 +295,13 @@ async function confirmarGuardado() {
 
   let puntos = _rutaActual.puntos;
   let altCorregida = false;
+  let errorAltura = null;
   try {
     puntos = await altura.corregirAlturas(puntos);
     altCorregida = true;
-  } catch {
-    altCorregida = false; // sin red: se conserva la altitud del GPS
+  } catch (e) {
+    altCorregida = false; // sin red o error de la API: se conserva la altitud del GPS
+    errorAltura = e.message;
   }
 
   const ruta = {
@@ -322,7 +324,7 @@ async function confirmarGuardado() {
 
   $('zonaGuardarEstado').textContent = altCorregida
     ? 'Alturas corregidas con SRTM y ruta guardada.'
-    : 'Sin conexion: alturas del GPS. Podes re-exportar despues. Ruta guardada.';
+    : `Alturas del GPS (${errorAltura || 'sin conexion'}). Podes re-exportar despues. Ruta guardada.`;
   // redibujar perfil con alturas corregidas
   perfil.dibujarPerfil($('canvasGuardar'), puntos);
 
@@ -440,10 +442,10 @@ async function corregirAlturasGuardada() {
   let puntos;
   try {
     puntos = await altura.corregirAlturas(ruta.puntos);
-  } catch {
-    avisoAltura.textContent = 'Sin conexion: no se pudo corregir. Intentalo con red.';
+  } catch (e) {
+    avisoAltura.textContent = `No se pudo corregir (${e.message}). Intentalo de nuevo.`;
     btn.disabled = false;
-    mostrarToast('Sin red para corregir alturas', 'error');
+    mostrarToast('Fallo la correccion de alturas', 'error');
     return;
   }
 

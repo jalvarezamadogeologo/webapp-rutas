@@ -8,32 +8,39 @@ import { dividirEnLotes, estadisticas } from './geo.js';
 const ENDPOINT = 'https://api.opentopodata.org/v1/srtm90m';
 const TAMANO_LOTE = 100;
 
-/** Devuelve la lista de coordenadas "lat,lon" para el endpoint. */
+/** Coordenadas para el endpoint: string "lat,lon" separado por pipes. */
 function aCoordenadas(puntos) {
-  return puntos.map((p) => `${p.lat},${p.lon}`);
+  return puntos.map((p) => `${p.lat},${p.lon}`).join('|');
 }
 
 /**
  * Consulta elevacion SRTM para una lista de puntos.
  * Cada punto: {lat, lon, alt}. Devuelve los puntos con .alt reemplazada
  * por la elevacion SRTM (o conservada si la API no responde para ese punto).
- * Lanza Error si no hay red o la API falla (el llamador decide que hacer).
+ * Lanza Error con mensaje diferenciado:
+ *  - red caida / servidor inaccesible -> "sin conexion"
+ *  - respuesta invalida de la API    -> "la API respondio ..."
  */
 export async function corregirAlturas(puntos) {
   if (puntos.length === 0) return [];
   const resultados = [];
   for (const lote of dividirEnLotes(puntos, TAMANO_LOTE)) {
-    const res = await fetch(ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ locations: aCoordenadas(lote) }),
-    });
+    let res;
+    try {
+      res = await fetch(ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ locations: aCoordenadas(lote) }),
+      });
+    } catch {
+      throw new Error('sin conexion');
+    }
     if (!res.ok) {
-      throw new Error(`OpenTopoData respondio ${res.status}`);
+      throw new Error(`la API respondio ${res.status}`);
     }
     const datos = await res.json();
     if (!datos.results || datos.results.length !== lote.length) {
-      throw new Error('Respuesta de OpenTopoData con formato inesperado');
+      throw new Error('la API respondio con formato inesperado');
     }
     lote.forEach((p, i) => {
       const elev = datos.results[i].elevation;
